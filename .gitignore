@@ -1,0 +1,55 @@
+
+# Project specific
+# .*/
+.py[o|c]
+.ipynb_checkpoints/
+lightning_logs/
+models/
+recordings/
+data/
+
+### VisualStudioCode ###
+.vscode/*
+# !.vscode/settings.json
+# !.vscode/tasks.json
+# !.vscode/launch.json
+!.vscode/extensions.json
+# !.vscode/*.code-snippets
+
+# Training Artefacts
+*.onnx
+*.pth
+*.pkl
+# *.json
+*.zip
+
+# Allow mnist data
+!mnist_1k.zip
+!mnist_10k.zip
+
+# Compiled Python files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+venv/
+env/
+*.env
+
+# Logs and databases
+*.log
+*.db
+*.sqlite3
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# User-specific files
+*.pyproj.user
+*.suo
+*.user
+*.sln.docstates
+
+# JetBrains IDE
+.idea/

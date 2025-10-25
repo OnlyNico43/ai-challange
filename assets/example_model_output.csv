@@ -1,0 +1,11 @@
+image,true,prediction,confidence,output
+img_001.jpg,StopSign,StopSign,0.95,"{'50Sign': 0.02, 'ClearSign': 0.01, 'NoSign': 0.02, 'StopSign': 0.95}"
+img_002.jpg,NoSign,NoSign,0.6,"{'50Sign': 0.6, 'ClearSign': 0.3, 'NoSign': 0.05, 'StopSign': 0.05}"
+img_003.jpg,50Sign,50Sign,0.9,"{'NoSign': 0.9, 'ClearSign': 0.05, '50Sign': 0.03, 'StopSign': 0.02}"
+img_005.jpg,ClearSign,ClearSign,0.85,"{'50Sign': 0.05, 'ClearSign': 0.85, 'NoSign': 0.05, 'StopSign': 0.05}"
+img_006.jpg,StopSign,StopSign,0.92,"{'50Sign': 0.01, 'ClearSign': 0.02, 'NoSign': 0.05, 'StopSign': 0.92}"
+img_007.jpg,ClearSign,ClearSign,0.88,"{'50Sign': 0.05, 'ClearSign': 0.88, 'NoSign': 0.04, 'StopSign': 0.03}"
+img_008.jpg,50Sign,50Sign,0.93,"{'50Sign': 0.93, 'ClearSign': 0.03, 'NoSign': 0.02, 'StopSign': 0.02}"
+img_009.jpg,NoSign,NoSign,0.91,"{'50Sign': 0.02, 'ClearSign': 0.01, 'NoSign': 0.91, 'StopSign': 0.06}"
+img_010.jpg,50Sign,StopSign,0.65,"{'50Sign': 0.3, 'ClearSign': 0.05, 'NoSign': 0.0, 'StopSign': 0.65}"
+img_011.jpg,StopSign,50Sign,0.7,"{'50Sign': 0.7, 'ClearSign': 0.1, 'NoSign': 0.05, 'StopSign': 0.15}"

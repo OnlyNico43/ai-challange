@@ -1,0 +1,24 @@
+ipykernel
+ipywidgets
+notebook
+
+torch
+torchvision
+torchinfo
+lightning #pytorch-lightning got renamed
+
+scikit-learn
+
+onnx
+onnxruntime
+
+pandas
+pandas-stubs
+matplotlib
+plotly
+Pillow
+opencv-python
+
+click
+
+git+https://gitlab.com/ifsoftware/ai-challenge/ai-challenge-package.git
