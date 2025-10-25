@@ -35,6 +35,7 @@ __pycache__/
 venv/
 env/
 *.env
+.venv
 
 # Logs and databases
 *.log
