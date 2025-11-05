@@ -22,6 +22,7 @@ data/
 *.pkl
 # *.json
 *.zip
+!data.zip
 
 # Allow mnist data
 !mnist_1k.zip
