@@ -10,6 +10,7 @@ lightning #pytorch-lightning got renamed
 scikit-learn
 
 onnx
+onnxscript
 onnxruntime
 
 pandas
