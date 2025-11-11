@@ -2,6 +2,8 @@ from collections import deque
 from pathlib import Path
 from typing import Dict
 
+
+
 import numpy as np
 import openvino as ov
 from numpy import ndarray
@@ -10,7 +12,7 @@ from PIL import Image
 
 # ---------------- Config ----------------
 SPEED = 75.0        # regular speed
-DRIVE_MODEL_NAME = 'unequaled-skink-546_New_v4_2_v3_e30.onnx'
+DRIVE_MODEL_NAME = "DriveModel_v1.onnx"
 MEM_SIZE = 12
 
 angle_history = deque(maxlen=MEM_SIZE)
@@ -40,8 +42,14 @@ def step(img, model) -> tuple[float, float, Dict[str, float]]:
 
     drive_model = model
     drive_image, _ = img_to_tensor(img)
-    
-    angle_history_array = np.array(list(angle_history), dtype=np.float32).reshape(1, -1)
+
+    angle_history_list = list(reversed(angle_history))
+    if len(angle_history_list) < MEM_SIZE:
+        angle_history_list += [0.0] * (MEM_SIZE - len(angle_history_list))
+    else:
+        angle_history_list = angle_history_list[:MEM_SIZE]
+
+    angle_history_array = np.array(angle_history_list, dtype=np.float32).reshape(1, MEM_SIZE)
 
     angle = predict_angle(drive_model, drive_image, angle_history_array)
 
@@ -54,7 +62,8 @@ def step(img, model) -> tuple[float, float, Dict[str, float]]:
 
 def predict_angle(drive_model: CompiledModel, img: ndarray, angle_history: ndarray) -> float:
     """Run drive model inference on an image"""
-    out = drive_model(img, angle_history)[0]
+    result = drive_model([img, angle_history])
+    out = result[0]
     return float(np.array(out).ravel()[0])
 
 
@@ -74,3 +83,4 @@ def img_to_tensor(img: Image.Image) -> tuple[ndarray, ndarray]:
     drive_batched = np.transpose(drive_arr, (2, 0, 1))[None, ...]  # [1, 3, 84, 160]
 
     return drive_batched, sign_batched
+ 
