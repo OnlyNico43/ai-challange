@@ -23,6 +23,7 @@ data/
 # *.json
 *.zip
 !data.zip
+!sign-data.zip
 
 # Allow mnist data
 !mnist_1k.zip
