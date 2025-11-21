@@ -149,7 +149,7 @@ plt.close(fig)
 
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms.functional import pil_to_tensor
-MEM_SIZE = 12
+MEM_SIZE = 8
 
 class ImageDataset(Dataset):
     def __init__(self, image_paths, sorted_image_paths, transform=None):
