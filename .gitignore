@@ -4,7 +4,6 @@
 .py[o|c]
 .ipynb_checkpoints/
 lightning_logs/
-models/
 recordings/
 data/
 sign-data/
@@ -18,7 +17,6 @@ sign-data/
 # !.vscode/*.code-snippets
 
 # Training Artefacts
-*.onnx
 *.pth
 *.pkl
 # *.json
