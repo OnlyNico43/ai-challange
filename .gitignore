@@ -6,6 +6,7 @@
 lightning_logs/
 recordings/
 data/
+sign-data/
 
 ### VisualStudioCode ###
 .vscode/*
