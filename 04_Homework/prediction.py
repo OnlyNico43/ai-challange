@@ -1,10 +1,11 @@
+from collections import deque
 from pathlib import Path
 from time import time
-from typing import Dict, Tuple, Optional
+from typing import Dict, Optional, Tuple
 
 import numpy as np
-from numpy import ndarray
 import openvino as ov
+from numpy import ndarray
 from openvino import CompiledModel
 from PIL import Image
 
@@ -16,20 +17,26 @@ SIGN_THRESHOLD = 0.75       # how certain the model should be before registering
 STOP_TIME_BUFFER = 2.0      # ignore repeated stop within this time
 STOP_TIMEOUT = 3.0          # seconds to hold a full stop – DO NOT CHANGE!
 
-DRIVE_MODEL_NAME = 'unequaled-skink-546_New_v4_2_v3_e30.onnx'
-SIGN_MODEL_NAME = 'delightful-crane-77.onnx'
+DRIVE_MODEL_NAME = 'DriveModel_v1.onnx'
+SIGN_MODEL_NAME = 'SignModel.onnx'
+
+MEM_SIZE = 12
 
 # ---------------- State ----------------
 _last_detected_time: float = 0.0
 _last_detected_sign: Optional[str] = None
 _last_speed: float = DEFAULT_SPEED
 
+angle_history = deque(maxlen=MEM_SIZE)
+
 
 # ---------------- Load ----------------
 def load(model_dir: str) -> Tuple[CompiledModel, CompiledModel]:
     """This functions gets called every time the side button on the remote is pressed in self-driving mode.
     The function loads both models on the raspberry pi."""
-    global _drive_input_name, _sign_input_name
+    global _drive_input_name, _sign_input_name, angle_history
+    
+    angle_history = deque([0.0]*MEM_SIZE, maxlen=MEM_SIZE)
 
     model_dir = Path(model_dir)
 
@@ -54,7 +61,7 @@ def load(model_dir: str) -> Tuple[CompiledModel, CompiledModel]:
 def step(img, models) -> tuple[float, float, Dict[str, float]]:
     """This function gets called for every image from the cars camera"""
     global _last_detected_time, _last_detected_sign, _last_speed
-    global STOP_TIMEOUT, STOP_TIME_BUFFER
+    global STOP_TIMEOUT, STOP_TIME_BUFFER, angle_history
 
     drive_model, sign_model = models
     now = time()
@@ -66,7 +73,18 @@ def step(img, models) -> tuple[float, float, Dict[str, float]]:
 
     drive_image, sign_image = img_to_tensor(img)
 
-    angle = predict_angle(drive_model, drive_image)
+    angle_history_list = list(reversed(angle_history))
+    if len(angle_history_list) < MEM_SIZE:
+        angle_history_list += [0.0] * (MEM_SIZE - len(angle_history_list))
+    else:
+        angle_history_list = angle_history_list[:MEM_SIZE]
+
+    angle_history_array = np.array(angle_history_list, dtype=np.float32).reshape(1, MEM_SIZE)
+
+    angle = predict_angle(drive_model, drive_image, angle_history_array)
+    
+    angle_history.append(angle)
+    
     signs = predict_sign(sign_model, sign_image)
 
     chosen = resolve_sign(signs, now)
@@ -77,9 +95,10 @@ def step(img, models) -> tuple[float, float, Dict[str, float]]:
 
 # ---------------- Inference ----------------
 
-def predict_angle(drive_model: CompiledModel, img: ndarray) -> float:
+def predict_angle(drive_model: CompiledModel, img: ndarray, angle_history: ndarray) -> float:
     """Run drive model inference on an image"""
-    out = drive_model(img)[0]
+    result = drive_model([img, angle_history])
+    out = result[0]
     return float(np.array(out).ravel()[0])
 
 
