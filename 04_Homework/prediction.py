@@ -17,12 +17,14 @@ SIGN_THRESHOLD = 0.75       # how certain the model should be before registering
 STOP_TIME_BUFFER = 2.0      # ignore repeated stop within this time
 STOP_TIMEOUT = 3.0          # seconds to hold a full stop – DO NOT CHANGE!
 SLOW_SPEED_MAX_DURATION = 500.0   # seconds to stay slow after 50Sign before returning to normal speed
-SLOW_SPEED_MIN_DURATION = 10.0   # minimum seconds to stay slow after 50Sign before returning to normal speed
+SLOW_SPEED_MIN_DURATION = 0.0   # minimum seconds to stay slow after 50Sign before returning to normal speed
+CONSECUTIVE_SIGN_THRESHOLD = 25  # number of consecutive detections required to confirm a sign
+TOP_CROP=30
 
 DRIVE_MODEL_NAME = 'DriveModel_v1.onnx'
 SIGN_MODEL_NAME = 'SignModel.onnx'
 
-MEM_SIZE = 8
+MEM_SIZE = 12
 
 IS_CAMEL_RACE = False
 
@@ -32,6 +34,8 @@ _last_detected_sign: Optional[str] = None
 _last_speed: float = DEFAULT_SPEED
 _slow_speed_start_time: float = 0.0
 last_confirmed_sign: Optional[str] = None
+_consecutive_sign_count: int = 0
+_consecutive_sign_type: Optional[str] = None
 
 angle_history = deque(maxlen=MEM_SIZE)
 _frame_counter: int = 2
@@ -153,6 +157,7 @@ def resolve_sign(probs: Dict[str, float], now: float) -> str:
 def map_speed_to_sign(sign: str, now: float) -> float:
     """Assign each sign the corresponding speed"""
     global _last_detected_time, _last_speed, last_confirmed_sign, _slow_speed_start_time
+    global _consecutive_sign_count, _consecutive_sign_type
 
     # Check if we should automatically return to normal speed after SLOW_SPEED_DURATION
     if _slow_speed_start_time > 0 and now >= _slow_speed_start_time + SLOW_SPEED_MAX_DURATION:
@@ -160,10 +165,22 @@ def map_speed_to_sign(sign: str, now: float) -> float:
         _slow_speed_start_time = 0.0
         last_confirmed_sign = None
 
-    if last_confirmed_sign == sign:
+    # Count consecutive detections of the same sign
+    if sign == _consecutive_sign_type:
+        _consecutive_sign_count += 1
+    else:
+        _consecutive_sign_type = sign
+        _consecutive_sign_count = 1
+
+    # Only confirm sign after n consecutive detections
+    confirmed_sign = None
+    if _consecutive_sign_count >= CONSECUTIVE_SIGN_THRESHOLD:
+        confirmed_sign = sign
+
+    if last_confirmed_sign == confirmed_sign:
         return _last_speed
     
-    if sign == 'StopSign':
+    if confirmed_sign == 'StopSign':
         _last_detected_time = now
 
     if last_confirmed_sign == '50Sign':
@@ -172,9 +189,8 @@ def map_speed_to_sign(sign: str, now: float) -> float:
     elif last_confirmed_sign == 'ClearSign' and now >= _slow_speed_start_time + SLOW_SPEED_MIN_DURATION:
         _last_speed = DEFAULT_SPEED
         _slow_speed_start_time = 0.0  # Reset the timer
-    # elif sign == 'StopSign':
-    #     _last_detected_time = now
-    last_confirmed_sign = sign
+
+    last_confirmed_sign = confirmed_sign
     return _last_speed
 
 # Old/basic version of this function, for camel race
@@ -204,7 +220,8 @@ def img_to_tensor(img: Image.Image) -> tuple[ndarray, ndarray]:
 
     # drive
     drive_resized = img.resize((160, 120), resample=Image.Resampling.NEAREST)
-    drive_arr = np.array(drive_resized, dtype=np.float32)  # [240, 320, 3]
+    drive_croped = drive_resized.crop((0, TOP_CROP, 160, 120))
+    drive_arr = np.array(drive_croped, dtype=np.float32)  # [240, 320, 3]
     drive_arr *= 1.0 / 255.0
     drive_batched = np.transpose(drive_arr, (2, 0, 1))[None, ...]  # [1, 3, 84, 160]
 
