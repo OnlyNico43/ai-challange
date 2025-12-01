@@ -16,27 +16,37 @@ SIGN_THRESHOLD = 0.75       # how certain the model should be before registering
 
 STOP_TIME_BUFFER = 2.0      # ignore repeated stop within this time
 STOP_TIMEOUT = 3.0          # seconds to hold a full stop – DO NOT CHANGE!
+SLOW_SPEED_MAX_DURATION = 500.0   # seconds to stay slow after 50Sign before returning to normal speed
+SLOW_SPEED_MIN_DURATION = 10.0   # minimum seconds to stay slow after 50Sign before returning to normal speed
 
 DRIVE_MODEL_NAME = 'DriveModel_v1.onnx'
 SIGN_MODEL_NAME = 'SignModel.onnx'
 
-MEM_SIZE = 12
+MEM_SIZE = 8
+
+IS_CAMEL_RACE = False
 
 # ---------------- State ----------------
 _last_detected_time: float = 0.0
 _last_detected_sign: Optional[str] = None
 _last_speed: float = DEFAULT_SPEED
+_slow_speed_start_time: float = 0.0
+last_confirmed_sign: Optional[str] = None
 
 angle_history = deque(maxlen=MEM_SIZE)
+_frame_counter: int = 2
+_cached_signs: Dict[str, float] = {}
 
 
 # ---------------- Load ----------------
 def load(model_dir: str) -> Tuple[CompiledModel, CompiledModel]:
     """This functions gets called every time the side button on the remote is pressed in self-driving mode.
     The function loads both models on the raspberry pi."""
-    global _drive_input_name, _sign_input_name, angle_history
+    global _drive_input_name, _sign_input_name, angle_history, _frame_counter, _cached_signs
     
     angle_history = deque([0.0]*MEM_SIZE, maxlen=MEM_SIZE)
+    _frame_counter = 0
+    _cached_signs = {}
 
     model_dir = Path(model_dir)
 
@@ -61,7 +71,7 @@ def load(model_dir: str) -> Tuple[CompiledModel, CompiledModel]:
 def step(img, models) -> tuple[float, float, Dict[str, float]]:
     """This function gets called for every image from the cars camera"""
     global _last_detected_time, _last_detected_sign, _last_speed
-    global STOP_TIMEOUT, STOP_TIME_BUFFER, angle_history
+    global STOP_TIMEOUT, STOP_TIME_BUFFER, angle_history, _frame_counter, _cached_signs
 
     drive_model, sign_model = models
     now = time()
@@ -85,10 +95,19 @@ def step(img, models) -> tuple[float, float, Dict[str, float]]:
     
     angle_history.append(angle)
     
-    signs = predict_sign(sign_model, sign_image)
+    # Run sign detection only every 3rd frame
+    _frame_counter += 1
+    if _frame_counter % 3 == 0 or IS_CAMEL_RACE:
+        signs = predict_sign(sign_model, sign_image)
+        _cached_signs = signs
+    else:
+        signs = _cached_signs
 
     chosen = resolve_sign(signs, now)
-    speed = map_speed_to_sign(chosen, now)
+    if IS_CAMEL_RACE:
+        speed = map_speed_to_sign_old(chosen, now)
+    else:
+        speed = map_speed_to_sign(chosen, now)
 
     return angle, speed, signs
 
@@ -132,6 +151,34 @@ def resolve_sign(probs: Dict[str, float], now: float) -> str:
 
 
 def map_speed_to_sign(sign: str, now: float) -> float:
+    """Assign each sign the corresponding speed"""
+    global _last_detected_time, _last_speed, last_confirmed_sign, _slow_speed_start_time
+
+    # Check if we should automatically return to normal speed after SLOW_SPEED_DURATION
+    if _slow_speed_start_time > 0 and now >= _slow_speed_start_time + SLOW_SPEED_MAX_DURATION:
+        _last_speed = DEFAULT_SPEED
+        _slow_speed_start_time = 0.0
+        last_confirmed_sign = None
+
+    if last_confirmed_sign == sign:
+        return _last_speed
+    
+    if sign == 'StopSign':
+        _last_detected_time = now
+
+    if last_confirmed_sign == '50Sign':
+        _last_speed = SLOW_SPEED
+        _slow_speed_start_time = now  # Start the slow speed timer
+    elif last_confirmed_sign == 'ClearSign' and now >= _slow_speed_start_time + SLOW_SPEED_MIN_DURATION:
+        _last_speed = DEFAULT_SPEED
+        _slow_speed_start_time = 0.0  # Reset the timer
+    # elif sign == 'StopSign':
+    #     _last_detected_time = now
+    last_confirmed_sign = sign
+    return _last_speed
+
+# Old/basic version of this function, for camel race
+def map_speed_to_sign_old(sign: str, now: float) -> float:
     """Assign each sign the corresponding speed"""
     global _last_detected_time, _last_speed
 
