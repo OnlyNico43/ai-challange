@@ -18,7 +18,7 @@ STOP_TIME_BUFFER = 2.0      # ignore repeated stop within this time
 STOP_TIMEOUT = 3.0          # seconds to hold a full stop – DO NOT CHANGE!
 SLOW_SPEED_MAX_DURATION = 500.0   # seconds to stay slow after 50Sign before returning to normal speed
 SLOW_SPEED_MIN_DURATION = 0.0   # minimum seconds to stay slow after 50Sign before returning to normal speed
-CONSECUTIVE_SIGN_THRESHOLD = 25  # number of consecutive detections required to confirm a sign
+CONSECUTIVE_SIGN_THRESHOLD = 10  # number of consecutive detections required to confirm a sign
 TOP_CROP=30
 
 DRIVE_MODEL_NAME = 'DriveModel_v1.onnx'
@@ -173,14 +173,10 @@ def map_speed_to_sign(sign: str, now: float) -> float:
         _consecutive_sign_count = 1
 
     # Only confirm sign after n consecutive detections
-    confirmed_sign = None
-    if _consecutive_sign_count >= CONSECUTIVE_SIGN_THRESHOLD:
-        confirmed_sign = sign
-
-    if last_confirmed_sign == confirmed_sign:
+    if _consecutive_sign_count < CONSECUTIVE_SIGN_THRESHOLD or last_confirmed_sign == sign:
         return _last_speed
     
-    if confirmed_sign == 'StopSign':
+    if sign == 'StopSign':
         _last_detected_time = now
 
     if last_confirmed_sign == '50Sign':
@@ -190,7 +186,7 @@ def map_speed_to_sign(sign: str, now: float) -> float:
         _last_speed = DEFAULT_SPEED
         _slow_speed_start_time = 0.0  # Reset the timer
 
-    last_confirmed_sign = confirmed_sign
+    last_confirmed_sign = sign
     return _last_speed
 
 # Old/basic version of this function, for camel race
