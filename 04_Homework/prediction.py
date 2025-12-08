@@ -20,6 +20,8 @@ SLOW_SPEED_MAX_DURATION = 500.0   # seconds to stay slow after 50Sign before ret
 SLOW_SPEED_MIN_DURATION = 0.0   # minimum seconds to stay slow after 50Sign before returning to normal speed
 CONSECUTIVE_SIGN_THRESHOLD = 10  # number of consecutive detections required to confirm a sign
 TOP_CROP=30
+# time after 50 Sign, that car continues to drive at full speed
+TIME_AFTER_50_SIGN=0.0
 
 DRIVE_MODEL_NAME = 'DriveModel_v1.onnx'
 SIGN_MODEL_NAME = 'SignModel.onnx'
@@ -40,6 +42,7 @@ _consecutive_sign_type: Optional[str] = None
 angle_history = deque(maxlen=MEM_SIZE)
 _frame_counter: int = 2
 _cached_signs: Dict[str, float] = {}
+last_50_sign_time: float = 0.0
 
 
 # ---------------- Load ----------------
@@ -100,6 +103,7 @@ def step(img, models) -> tuple[float, float, Dict[str, float]]:
     angle_history.append(angle)
     
     # Run sign detection only every 3rd frame
+    # TODO cache speed instead of sign, that way the consecutive sign threshold also works more as intended
     _frame_counter += 1
     if _frame_counter % 3 == 0 or IS_CAMEL_RACE:
         signs = predict_sign(sign_model, sign_image)
@@ -157,14 +161,18 @@ def resolve_sign(probs: Dict[str, float], now: float) -> str:
 def map_speed_to_sign(sign: str, now: float) -> float:
     """Assign each sign the corresponding speed"""
     global _last_detected_time, _last_speed, last_confirmed_sign, _slow_speed_start_time
-    global _consecutive_sign_count, _consecutive_sign_type
+    global _consecutive_sign_count, _consecutive_sign_type, last_50_sign_time
 
     # Check if we should automatically return to normal speed after SLOW_SPEED_DURATION
     if _slow_speed_start_time > 0 and now >= _slow_speed_start_time + SLOW_SPEED_MAX_DURATION:
         _last_speed = DEFAULT_SPEED
         _slow_speed_start_time = 0.0
         last_confirmed_sign = None
-
+    
+    if last_50_sign_time + TIME_AFTER_50_SIGN < now and last_confirmed_sign == '50Sign':
+        _last_speed = SLOW_SPEED
+        _slow_speed_start_time = now
+    
     # Count consecutive detections of the same sign
     if sign == _consecutive_sign_type:
         _consecutive_sign_count += 1
@@ -180,8 +188,9 @@ def map_speed_to_sign(sign: str, now: float) -> float:
         _last_detected_time = now
 
     if last_confirmed_sign == '50Sign':
-        _last_speed = SLOW_SPEED
-        _slow_speed_start_time = now  # Start the slow speed timer
+        # _last_speed = SLOW_SPEED
+        # _slow_speed_start_time = now  # Start the slow speed timer
+        last_50_sign_time = now
     elif last_confirmed_sign == 'ClearSign' and now >= _slow_speed_start_time + SLOW_SPEED_MIN_DURATION:
         _last_speed = DEFAULT_SPEED
         _slow_speed_start_time = 0.0  # Reset the timer
